@@ -1,0 +1,39 @@
+name: cashkoom-rabbitmq
+
+services:
+  rabbitmq:
+    image: rabbitmq:4.4-management
+    hostname: cashkoom-rabbitmq
+    restart: unless-stopped
+    stop_grace_period: 2m
+    cpus: ${RABBITMQ_CPUS:-4}
+    mem_limit: ${RABBITMQ_MEMORY:-4g}
+    environment:
+      RABBITMQ_NODENAME: rabbit@cashkoom-rabbitmq
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_ADMIN_USER:?Set the RabbitMQ administrator username in .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_ADMIN_PASSWORD:?Set the RabbitMQ administrator password in .env}
+      RABBITMQ_DEFAULT_VHOST: cashkoom
+    ports:
+      - '${SERVICE_BIND_IP:?Set SERVICE_BIND_IP to this server VPN IP}:5672:5672'
+      - '127.0.0.1:15672:15672'
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ['CMD-SHELL', 'rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_local_alarms']
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 1m
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+volumes:
+  rabbitmq_data:

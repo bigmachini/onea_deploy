@@ -1,0 +1,4 @@
+secrets/
+backups/
+.env
+.pgpass

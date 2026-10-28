@@ -1,0 +1,38 @@
+name: cashkoom-couchdb
+
+services:
+  couchdb:
+    image: couchdb:3.5
+    hostname: cashkoom-couchdb
+    restart: unless-stopped
+    stop_grace_period: 2m
+    cpus: ${COUCHDB_CPUS:-2}
+    mem_limit: ${COUCHDB_MEMORY:-2g}
+    environment:
+      COUCHDB_USER: ${COUCHDB_ADMIN_USER:?Set the CouchDB administrator username in .env}
+      COUCHDB_PASSWORD: ${COUCHDB_ADMIN_PASSWORD:?Set the CouchDB administrator password in .env}
+    ports:
+      - '${SERVICE_BIND_IP:?Set SERVICE_BIND_IP to this server VPN IP}:5984:5984'
+    volumes:
+      - couchdb_data:/opt/couchdb/data
+      - couchdb_config:/opt/couchdb/etc/local.d
+      - ./10-cashkoom.ini:/opt/couchdb/etc/local.d/10-cashkoom.ini:ro
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ['CMD-SHELL', 'curl --fail --silent --show-error --max-time 5 --user "$$COUCHDB_USER:$$COUCHDB_PASSWORD" http://127.0.0.1:5984/_up > /dev/null']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+volumes:
+  couchdb_data:
+  couchdb_config:

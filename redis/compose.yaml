@@ -1,0 +1,34 @@
+name: cashkoom-redis
+
+services:
+  redis:
+    image: redis:8.2-bookworm
+    restart: unless-stopped
+    stop_grace_period: 2m
+    cpus: ${REDIS_CPUS:-2}
+    mem_limit: ${REDIS_MEMORY:-3g}
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set the Redis password in .env}
+      REDIS_MAXMEMORY: ${REDIS_MAXMEMORY:-1gb}
+    entrypoint: [bash, /redis-entrypoint.sh]
+    command: []
+    ports:
+      - '${SERVICE_BIND_IP:?Set SERVICE_BIND_IP to this server VPN IP}:6379:6379'
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - ./redis-entrypoint.sh:/redis-entrypoint.sh:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli --raw ping | grep -qx PONG']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+volumes:
+  redis_data:
