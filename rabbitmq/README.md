@@ -21,17 +21,13 @@ free disk. Alarms block publishing rather than clean up messages. Adjust limits
 and alarms together for the host/workload. Prefer fast local SSD storage. Monitor
 queue growth and leave disk headroom. Keep the hostname/nodename unchanged on an
 existing volume: it identifies stored state. The private Erlang cookie persists
-in the volume. Only AMQP is published to the VPN; clustering ports are not published.
+in the volume. AMQP and the management UI are published to the VPN; clustering
+ports are not published.
 
 ## Management and application users
 
-From your computer:
-
-```bash
-ssh -N -L 15672:127.0.0.1:15672 your-admin-user@service-server
-```
-
-Open [RabbitMQ management](http://localhost:15672), using the initial administrator
+Open `http://<SERVICE_BIND_IP>:15672` using the VPN IP configured in `.env`
+(see `.env.example`), using the initial administrator
 login from `.env`. Under **Admin → Users**, create separate application users
 without management/administrator tags. Grant permissions on the `cashkoom` vhost,
 scoped to their queue/exchange names. Only use `.*` for configure/write/read if

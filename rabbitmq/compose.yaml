@@ -15,7 +15,7 @@ services:
       RABBITMQ_DEFAULT_VHOST: cashkoom
     ports:
       - '${SERVICE_BIND_IP:?Set SERVICE_BIND_IP to this server VPN IP}:5672:5672'
-      - '127.0.0.1:15672:15672'
+      - '${SERVICE_BIND_IP:?Set SERVICE_BIND_IP to this server VPN IP}:15672:15672'
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro

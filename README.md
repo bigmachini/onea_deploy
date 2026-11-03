@@ -29,7 +29,8 @@ Traffic must use an **encrypted private network/VPN**; otherwise add service TLS
 and client certificate verification first. Do not expose application ports to the
 public Internet. Restrict them to application hosts at the provider/network
 firewall. Docker publishing can bypass ordinary UFW rules: do not rely on UFW alone.
-The RabbitMQ management UI binds to localhost and uses SSH tunnels. pgAdmin binds
+The RabbitMQ management UI and RedisInsight bind to the server's VPN address
+(`SERVICE_BIND_IP`). pgAdmin binds
 to the database server's VPN address (`DB_BIND_IP`), so any VPN peer can reach its
 login page; see the PostgreSQL guide. CouchDB
 serves Fauxton on its same private API port; see its access-control guide.
