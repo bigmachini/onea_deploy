@@ -11,13 +11,15 @@ Odoo and HES servers. A private IP by itself does not encrypt traffic. If your
 network does not provide encryption, configure PostgreSQL TLS and certificate
 verification before deployment instead of using these rules unchanged.
 
-Example addresses (replace all three):
+Addresses are NetBird VPN addresses. Odoo and HES currently run on the same
+application server (`onea-app-server`), so `pg_hba.conf` cannot tell them apart by
+source address: the separate roles, passwords and `CONNECT` grants do that.
 
 | Server | VPN address | Database role | Initial database |
 | --- | --- | --- | --- |
-| PostgreSQL | 10.50.0.10 | local administration only | postgres |
-| Odoo | 10.50.0.20 | odoo | cashkoom |
-| HES | 10.50.0.30 | hes | hes |
+| PostgreSQL | 100.104.198.98 | local administration only | postgres |
+| Odoo (onea-app-server) | 100.104.156.52 | odoo | cashkoom |
+| HES (onea-app-server) | 100.104.156.52 | django | django |
 
 PostgreSQL binds only to the database server's VPN address. `pg_hba.conf` permits
 only the listed database/role/source-address combinations. There is no remote
@@ -56,13 +58,16 @@ when needed. Existing application users/databases remain intact.
 
 ## pgAdmin: create users and databases
 
-pgAdmin is bound to localhost. From your own computer, open an SSH tunnel:
+pgAdmin is published on the database server's VPN address (`DB_BIND_IP`, port 5050),
+the same address as PostgreSQL, so administrators on the VPN can open it directly.
+Any VPN peer can reach its login page, so keep the pgAdmin password strong and
+allow TCP 5050 only from administrator machines at the network firewall. To keep it
+off the VPN, change the pgAdmin port in `compose.yaml` back to
+`'127.0.0.1:5050:80'` and use an SSH tunnel
+(`ssh -N -L 5050:127.0.0.1:5050 your-admin-user@database-server`).
 
-```bash
-ssh -N -L 5050:127.0.0.1:5050 your-admin-user@database-server
-```
-
-Open [pgAdmin](http://localhost:5050) and log in using `PGADMIN_EMAIL` and
+Open `http://<DB_BIND_IP>:5050` (for example `http://100.104.198.98:5050`), and log in
+using `PGADMIN_EMAIL` and
 `PGADMIN_PASSWORD`. Register a server with:
 
 | Field | Value |
@@ -83,18 +88,18 @@ These can be recreated from this guide.
 For each application in pgAdmin:
 
 1. Under **Login/Group Roles → Create**, create its role (for example `odoo` or
-   `hes`) and set its password in the Definition tab.
+   `django`) and set its password in the Definition tab.
 2. In Privileges, enable **Can login**. Leave superuser, create roles, create
    databases, replication and bypass row security disabled.
 3. Under **Databases → Create**, create the database and assign that role as
-   owner (for example `cashkoom` owned by `odoo`, and `hes` owned by `hes`).
+   owner (for example `cashkoom` owned by `odoo`, and `django` owned by `django`).
 4. In the maintenance database's Query Tool, restrict connections:
 
 ```sql
 REVOKE CONNECT, TEMPORARY ON DATABASE cashkoom FROM PUBLIC;
 GRANT CONNECT, TEMPORARY ON DATABASE cashkoom TO odoo;
-REVOKE CONNECT, TEMPORARY ON DATABASE hes FROM PUBLIC;
-GRANT CONNECT, TEMPORARY ON DATABASE hes TO hes;
+REVOKE CONNECT, TEMPORARY ON DATABASE django FROM PUBLIC;
+GRANT CONNECT, TEMPORARY ON DATABASE django TO django;
 ```
 
 In **cashkoom**'s Query Tool, install Odoo's extensions under its owner:
@@ -114,7 +119,7 @@ switching production traffic. This Compose file starts no application services.
 For a new Odoo database, add its name to the access rule, for example:
 
 ```text
-host cashkoom,odoo_company2 odoo 10.50.0.20/32 scram-sha-256
+host cashkoom,odoo_company2 odoo 100.104.156.52/32 scram-sha-256
 ```
 
 After editing `pg_hba.conf`, run these in pgAdmin's Query Tool:
@@ -131,7 +136,7 @@ The second query should return no rows. New databases are automatically backed u
 Example Odoo configuration (use the password you assigned in pgAdmin):
 
 ```ini
-db_host = 10.50.0.10
+db_host = 100.104.198.98
 db_port = 5432
 db_user = odoo
 db_password = <password assigned in pgAdmin>

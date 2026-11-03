@@ -39,7 +39,17 @@ Applications use the VPN IP, port **6379**, username `default`, and the configur
 password. The startup helper renders a private runtime authentication file instead
 of putting the password in redis-server arguments. Clients are trusted and have
 administrative powers; use Redis ACLs before sharing with less-trusted clients.
-Redis has no bundled account-management UI.
+
+## RedisInsight
+
+The `redis_insight` service provides the RedisInsight UI at
+`http://<SERVICE_BIND_IP>:5540`, bound to the VPN IP configured in `.env`
+(see `.env.example`). Open that address and add a database with host `redis`, port
+`6379`, username `default`, and the Redis password from `.env`. RedisInsight stores
+its settings in the persistent `redis_insight_data` volume.
+
+Image, port and storage follow the
+[official Docker installation guide](https://redis.io/docs/latest/operate/redisinsight/install/install-on-docker/).
 
 Use a separate instance for incompatible workloads/trust boundaries. Logical
 database numbers do not isolate memory, security or eviction. Do not mix a

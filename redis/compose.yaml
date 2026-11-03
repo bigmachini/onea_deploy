@@ -30,5 +30,22 @@ services:
         max-size: '10m'
         max-file: '3'
 
+  redis_insight:
+    image: redis/redisinsight:latest
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - '${SERVICE_BIND_IP:?Set SERVICE_BIND_IP to this server VPN IP}:5540:5540'
+    volumes:
+      - redis_insight_data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
 volumes:
   redis_data:
+  redis_insight_data:

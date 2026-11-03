@@ -8,6 +8,7 @@ Independent Compose projects:
 | [postgres-reporting](postgres-reporting/README.md) | PostgreSQL reporting replica | 5433 |
 | [rabbitmq](rabbitmq/README.md) | Message broker and local management UI | 5672 |
 | [redis](redis/README.md) | Persistent Redis | 6379 |
+| [couchdb](couchdb/README.md) | Document database and Fauxton | 5984 |
 
 These are single-node services, except for PostgreSQL's reporting copy. Persistent
 storage and operational checks do not provide automatic failover. Colocated
@@ -28,7 +29,10 @@ Traffic must use an **encrypted private network/VPN**; otherwise add service TLS
 and client certificate verification first. Do not expose application ports to the
 public Internet. Restrict them to application hosts at the provider/network
 firewall. Docker publishing can bypass ordinary UFW rules: do not rely on UFW alone.
-Management UIs bind to localhost and use SSH tunnels.
+The RabbitMQ management UI binds to localhost and uses SSH tunnels. pgAdmin binds
+to the database server's VPN address (`DB_BIND_IP`), so any VPN peer can reach its
+login page; see the PostgreSQL guide. CouchDB
+serves Fauxton on its same private API port; see its access-control guide.
 
 Copy each `.env.example` to `.env`, fill the administrator login/private IP and
 set mode 600. Single-quote passwords containing `$` so Compose treats it literally.
@@ -46,9 +50,17 @@ cd /opt/cashkoom
 chmod +x service-backup.sh service-check.sh
 ./service-backup.sh rabbitmq backup@backup-host:/srv/backups/cashkoom/rabbitmq/
 ./service-backup.sh redis backup@backup-host:/srv/backups/cashkoom/redis/
+./service-backup.sh couchdb backup@backup-host:/srv/backups/cashkoom/couchdb/
 ./service-check.sh rabbitmq
 ./service-check.sh redis
+./service-check.sh couchdb
 ```
+
+**CouchDB backups briefly stop the service** to archive all databases/settings
+consistently, then restart it before off-server transfer. Agree a maintenance
+window and measure downtime before enabling its scheduled job. Health checks
+can alert during that window; configure planned-maintenance suppression in your
+alerting system. See the CouchDB guide for recovery and online alternatives.
 
 The script validates each backup and sends it with SHA-256 sidecars over SSH.
 The success marker changes only after the off-server copy succeeds. Local backups
@@ -58,7 +70,8 @@ retention (for example 30 days) and monitor that server's disk.
 **RabbitMQ daily exports contain definitions, not queued messages.** See its guide
 for stopped-node message backups. Redis's daily RDB snapshot permits up to 24 hours
 of lost changes after a host/disk disaster. Local AOF reduces Redis's crash-loss
-window, but remains on that same disk. Back up configuration/credentials securely
+window, but remains on that same disk. CouchDB daily archives likewise allow up
+to 24 hours of lost changes after a disaster. Back up configuration/credentials securely
 and separately. SHA-256 checks do not replace restore drills.
 
 Install/test host email delivery. Add to root's crontab, replacing email and paths:
@@ -69,6 +82,9 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 MAILTO=ops@example.com
 15 2 * * * /opt/cashkoom/service-backup.sh rabbitmq backup@backup-host:/srv/backups/cashkoom/rabbitmq/ > /var/log/cashkoom-rabbitmq-backup.log 2>&1 || cat /var/log/cashkoom-rabbitmq-backup.log
 30 2 * * * /opt/cashkoom/service-backup.sh redis backup@backup-host:/srv/backups/cashkoom/redis/ > /var/log/cashkoom-redis-backup.log 2>&1 || cat /var/log/cashkoom-redis-backup.log
+# CouchDB stops during this backup: choose an agreed maintenance window.
+45 2 * * * /opt/cashkoom/service-backup.sh couchdb backup@backup-host:/srv/backups/cashkoom/couchdb/ > /var/log/cashkoom-couchdb-backup.log 2>&1 || cat /var/log/cashkoom-couchdb-backup.log
+*/5 * * * * /opt/cashkoom/service-check.sh couchdb
 */5 * * * * /opt/cashkoom/service-check.sh rabbitmq
 */5 * * * * /opt/cashkoom/service-check.sh redis
 ```
@@ -82,20 +98,22 @@ run its own checks. Monitor application queue depth/latency in addition to healt
 
 Before go-live and monthly, restore off-server backups on an isolated host. Check
 unauthenticated access fails, then test publishing/consumption and Redis write/read
-persistence across restarts. Test application permissions and alert delivery.
+persistence across restarts. Test application permissions and alert delivery. CouchDB additionally needs a
+known-document/attachment and database-permission restore test.
 
 ## Updates
 
 RabbitMQ `4.4-management` and Redis `8.2-bookworm` track patches within their selected
 release lines. Redis 8.2 is an extended release. RabbitMQ 4.4 currently has community
 support through July 2027: plan a tested release upgrade before support ends.
-Review upstream lifecycle/security notices regularly.
+CouchDB uses the `3.5` patch release line. Review upstream lifecycle/security
+notices regularly.
 
 Test new images in staging, take backups, record the image ID, and update one
 service in a maintenance window:
 
 ```bash
-cd /opt/cashkoom/rabbitmq  # or /opt/cashkoom/redis
+cd /opt/cashkoom/rabbitmq  # or /opt/cashkoom/redis or /opt/cashkoom/couchdb
 docker inspect "$(docker compose ps -q)" --format '{{.Image}}'
 docker compose pull
 docker compose up -d --wait
